@@ -7,7 +7,8 @@ import json
 class NLPController(BaseController):
 
     def __init__(self, vectordb_client, generation_client, 
-                 embedding_client, template_parser):
+                 embedding_client, 
+                 template_parser = None):
         super().__init__()
 
         self.vectordb_client = vectordb_client
@@ -41,11 +42,13 @@ class NLPController(BaseController):
         texts = [ c.chunk_text for c in chunks ]
         metadata = [ c.chunk_metadata for c in  chunks]
         vectors = [
-            self.embedding_client.embed_text(text=text, 
-                                             document_type=DocumentTypeEnum.DOCUMENT.value)
+            self.embedding_client.embed_text(
+                text=text,
+                document_type=DocumentTypeEnum.DOCUMENT.value
+            )
             for text in texts
         ]
-
+        
         # step3: create collection if not exists
         _ = self.vectordb_client.create_collection(
             collection_name=collection_name,

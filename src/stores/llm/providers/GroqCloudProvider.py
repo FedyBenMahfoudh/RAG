@@ -1,18 +1,16 @@
 from ..LLMInterface import LLMInterface
 from ..LLMEnums import OpenAIEnums
-from openai import OpenAI
+from groq import Groq
 import logging
 from typing import Optional
-import httpx
-class OpenAIProvider(LLMInterface):
+class GroqCloudProvider(LLMInterface):
 
-    def __init__(self, api_key: str, api_url: str = None,
+    def __init__(self, api_key: str,
                  default_input_max_characters: int = 1000,
                  default_generation_max_output_tokens: int = 1000,
-                 default_generation_temperature: float = 0.1,):
+                 default_generation_temperature: float = 0.1):
         
         self.api_key = api_key
-        self.api_url = api_url
 
         self.default_input_max_characters = default_input_max_characters
         self.default_generation_max_output_tokens = default_generation_max_output_tokens
@@ -23,9 +21,8 @@ class OpenAIProvider(LLMInterface):
         self.embedding_size = None
 
 
-        self.client = OpenAI(
+        self.client = Groq(
             api_key=self.api_key,
-            base_url=self.api_url if self.api_url and len(self.api_url) else None,
         )
 
         self.enums = OpenAIEnums
@@ -62,7 +59,7 @@ class OpenAIProvider(LLMInterface):
         response = self.client.chat.completions.create(
             model = self.generation_model_id,
             messages = chat_history,
-            max_tokens = max_output_tokens,
+            max_completion_tokens = max_output_tokens,
             temperature = temperature
         )
 
@@ -83,16 +80,9 @@ class OpenAIProvider(LLMInterface):
             self.logger.error("Embedding model for OpenAI was not set")
             return None
         
-        response = self.client.embeddings.create(
-            model = self.embedding_model_id,
-            input = text,
-        )
 
-        if not response or not response.data or len(response.data) == 0 or not response.data[0].embedding:
-            self.logger.error("Error while embedding text with OpenAI")
-            return None
+        return None
 
-        return response.data[0].embedding
 
     def construct_prompt(self, prompt: str, role: str):
         return {

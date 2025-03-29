@@ -30,4 +30,5 @@ footer_prompt = Template("\n".join([
     "$query",
     "",
     "## الإجابة:",
+    
 ]))

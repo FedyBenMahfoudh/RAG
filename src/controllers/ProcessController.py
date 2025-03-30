@@ -57,7 +57,6 @@ class ProcessController(BaseController):
             rec.page_content
             for rec in file_content
         ]
-
         file_content_metadata = [
             rec.metadata
             for rec in file_content

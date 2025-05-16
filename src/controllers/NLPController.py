@@ -1,5 +1,5 @@
 from .BaseController import BaseController
-from models.db_schemes import Project, DataChunk
+from models.db_schemes import Conversation, DataChunk
 from stores.llm.LLMEnums import DocumentTypeEnum
 from typing import List
 import json
@@ -16,27 +16,27 @@ class NLPController(BaseController):
         self.embedding_client = embedding_client
         self.template_parser = template_parser
 
-    def create_collection_name(self, project_id: str):
-        return f"collection_{project_id}".strip()
+    def create_collection_name(self, conversation_id: str):
+        return f"collection_{conversation_id}".strip()
     
-    def reset_vector_db_collection(self, project: Project):
-        collection_name = self.create_collection_name(project_id=project.project_id)
+    def reset_vector_db_collection(self, conversation: Conversation):
+        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
         return self.vectordb_client.delete_collection(collection_name=collection_name)
     
-    def get_vector_db_collection_info(self, project: Project):
-        collection_name = self.create_collection_name(project_id=project.project_id)
+    def get_vector_db_collection_info(self, conversation: Conversation):
+        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
         collection_info = self.vectordb_client.get_collection_info(collection_name=collection_name)
 
         return json.loads(
             json.dumps(collection_info, default=lambda x: x.__dict__)
         )
     
-    def index_into_vector_db(self, project: Project, chunks: List[DataChunk],
+    def index_into_vector_db(self, conversation: Conversation, chunks: List[DataChunk],
                                    chunks_ids: List[int], 
                                    do_reset: bool = False):
         
         # step1: get collection name
-        collection_name = self.create_collection_name(project_id=project.project_id)
+        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
 
         # step2: manage items
         texts = [ c.chunk_text for c in chunks ]
@@ -67,10 +67,10 @@ class NLPController(BaseController):
 
         return True
 
-    def search_vector_db_collection(self, project: Project, text: str, limit: int = 10):
+    def search_vector_db_collection(self, conversation: Conversation, text: str, limit: int = 10):
 
         # step1: get collection name
-        collection_name = self.create_collection_name(project_id=project.project_id)
+        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
 
         # step2: get text embedding vector
         vector = self.embedding_client.embed_text(text=text, 
@@ -91,13 +91,13 @@ class NLPController(BaseController):
 
         return results
     
-    def answer_rag_question(self, project: Project, query: str, limit: int = 10):
+    def answer_rag_question(self, conversation: Conversation, query: str, limit: int = 10):
         
         answer, full_prompt, chat_history = None, None, None
 
         # step1: retrieve related documents
         retrieved_documents = self.search_vector_db_collection(
-            project=project,
+            conversation=conversation,
             text=query,
             limit=limit,
         )

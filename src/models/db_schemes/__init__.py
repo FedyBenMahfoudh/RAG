@@ -1,3 +1,3 @@
-from .project import Project
+from .conversation import Conversation
 from .data_chunk import DataChunk, RetrievedDocument
 from .asset import Asset

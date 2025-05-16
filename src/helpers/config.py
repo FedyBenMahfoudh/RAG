@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     COHERE_API_KEY: str = None
     GEMINI_API_KEY: str = None
     GROQ_API_KEY: str = None
+    MISTRAL_API_KEY:str = None
 
     GENERATION_MODEL_ID: str = None
     EMBEDDING_MODEL_ID: str = None
@@ -35,6 +36,11 @@ class Settings(BaseSettings):
 
     PRIMARY_LANG: str = "en"
     DEFAULT_LANG: str = "en"
+
+    SUPABASE_JWT_SECRET: str = None
+    SUPABASE_URL: str = None
+    SUPABASE_ANON_KEY: str = None
+    SUPABASE_DECOD_ALGORITHM: str = None
 
     class Config:
         env_file = ".env"

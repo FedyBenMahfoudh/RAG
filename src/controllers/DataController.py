@@ -1,5 +1,5 @@
 from .BaseController import BaseController
-from .ProjectController import ProjectController
+from .ConversationController import ConversationController
 from fastapi import UploadFile
 from models import ResponseSignal
 import re
@@ -21,24 +21,24 @@ class DataController(BaseController):
 
         return True, ResponseSignal.FILE_VALIDATED_SUCCESS.value
 
-    def generate_unique_filepath(self, orig_file_name: str, project_id: str):
+    def generate_unique_filepath(self, orig_file_name: str, conversation_id: str,user_id : str):
 
         random_key = self.generate_random_string()
-        project_path = ProjectController().get_project_path(project_id=project_id)
+        conversation_path = ConversationController().get_conversation_path(conversation_id=conversation_id,user_id=user_id)
 
         cleaned_file_name = self.get_clean_file_name(
             orig_file_name=orig_file_name
         )
 
         new_file_path = os.path.join(
-            project_path,
+            conversation_path,
             random_key + "_" + cleaned_file_name
         )
 
         while os.path.exists(new_file_path):
             random_key = self.generate_random_string()
             new_file_path = os.path.join(
-                project_path,
+                conversation_path,
                 random_key + "_" + cleaned_file_name
             )
 

@@ -5,7 +5,7 @@ from datetime import datetime
 
 class Asset(BaseModel):
     id: Optional[ObjectId] = Field(None, alias="_id")
-    asset_project_id: ObjectId
+    asset_conversation_id: ObjectId
     asset_type: str = Field(..., min_length=1)
     asset_name: str = Field(..., min_length=1)
     asset_size: int = Field(ge=0, default=None)
@@ -21,17 +21,17 @@ class Asset(BaseModel):
         return [
             {
                 "key": [
-                    ("asset_project_id", 1)
+                    ("asset_conversation_id", 1)
                 ],
-                "name": "asset_project_id_index_1",
+                "name": "asset_conversation_id_index_1",
                 "unique": False
             },
             {
                 "key": [
-                    ("asset_project_id", 1),
+                    ("asset_conversation_id", 1),
                     ("asset_name", 1)
                 ],
-                "name": "asset_project_id_name_index_1",
+                "name": "asset_conversation_id_name_index_1",
                 "unique": True
             },
         ]

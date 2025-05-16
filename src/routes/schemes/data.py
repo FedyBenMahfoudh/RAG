@@ -1,5 +1,11 @@
+from fastapi import UploadFile
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional,List
+
+class UploadRequest(BaseModel):
+    files : List[UploadFile]
+    user_id : str
+
 
 class ProcessRequest(BaseModel):
     file_id: str = None

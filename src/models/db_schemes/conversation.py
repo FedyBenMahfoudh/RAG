@@ -1,39 +1,29 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional
 from bson.objectid import ObjectId
+import datetime
 
 class Conversation(BaseModel):
     id: Optional[ObjectId] = Field(None, alias="_id")
-    conversation_id: str = Field(..., min_length=1)
-    user_id: str = Field(...,min_length=1)
-
-    @validator('conversation_id')
-    def validate_conversation_id(cls, value):
-        if not value.isalnum():
-            raise ValueError('conversation_id must be alphanumeric')
-        
-        return value
+    title: str
+    user_id: str = Field(..., min_length=1)
+    createdAt: Optional[datetime.datetime] = None
+    updatedAt: Optional[datetime.datetime] = None
 
     class Config:
         arbitrary_types_allowed = True
 
     @classmethod
     def get_indexes(cls):
-
         return [
             {
-                "key": [
-                    ("conversation_id", 1)
-                ],
-                "name": "conversation_id_index_1",
+                "key": [("user_id", 1)],
+                "name": "user_id_index",
                 "unique": False
             },
             {
-                "key": [
-                    ("conversation_id", 1),
-                    ("user_id",1)
-                ],
-                "name" : "conversation_id_user_id_index_1",
-                "unique" :  True
+                "key": [("user_id", 1), ("createdAt", -1)],
+                "name": "user_id_createdAt_index",
+                "unique": False
             }
         ]

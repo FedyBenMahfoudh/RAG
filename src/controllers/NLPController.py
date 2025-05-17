@@ -36,7 +36,7 @@ class NLPController(BaseController):
                                    do_reset: bool = False):
         
         # step1: get collection name
-        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
+        collection_name = self.create_collection_name(conversation_id=conversation.id)
 
         # step2: manage items
         texts = [ c.chunk_text for c in chunks ]
@@ -70,7 +70,7 @@ class NLPController(BaseController):
     def search_vector_db_collection(self, conversation: Conversation, text: str, limit: int = 10):
 
         # step1: get collection name
-        collection_name = self.create_collection_name(conversation_id=conversation.conversation_id)
+        collection_name = self.create_collection_name(conversation_id=conversation.id)
 
         # step2: get text embedding vector
         vector = self.embedding_client.embed_text(text=text, 

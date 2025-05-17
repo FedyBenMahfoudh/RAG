@@ -1,10 +1,10 @@
-from fastapi import FastAPI, APIRouter, status, Request
+from fastapi import FastAPI, APIRouter, status, Request,Depends
 from fastapi.responses import JSONResponse
 from routes.schemes.nlp import PushRequest, SearchRequest
-from models.ConversationModel import ConversationModel
-from models.ChunkModel import ChunkModel
+from models import ConversationModel,ChunkModel,CurrentUser
 from controllers import NLPController
 from models import ResponseSignal
+from guard.authGuard import guard
 
 import logging
 
@@ -13,10 +13,11 @@ logger = logging.getLogger('uvicorn.error')
 nlp_router = APIRouter(
     prefix="/api/v1/nlp",
     tags=["api_v1", "nlp"],
+    dependencies=[Depends(guard)] 
 )
 
-@nlp_router.post("/index/push/{user_id}/{conversation_id}")
-async def index_conversation(request: Request, conversation_id: str,user_id:str, push_request: PushRequest):
+@nlp_router.post("/index/push/{conversation_id}")
+async def index_conversation(request: Request, conversation_id: str, push_request: PushRequest, user: CurrentUser = Depends(guard)):
 
     conversation_model = await ConversationModel.create_instance(
         db_client=request.app.db_client
@@ -28,7 +29,7 @@ async def index_conversation(request: Request, conversation_id: str,user_id:str,
 
     conversation = await conversation_model.get_conversation_or_create_one(
         conversation_id=conversation_id,
-        user_id=user_id  
+        user_id=user.id  
     )
 
     if not conversation:
@@ -87,8 +88,8 @@ async def index_conversation(request: Request, conversation_id: str,user_id:str,
         }
     )
 
-@nlp_router.get("/index/info/{user_id}/{conversation_id}")
-async def get_conversation_index_info(request: Request,user_id:str, conversation_id: str):
+@nlp_router.get("/index/info/{conversation_id}")
+async def get_conversation_index_info(request: Request, conversation_id: str,user: CurrentUser = Depends(guard)):
     
     conversation_model = await ConversationModel.create_instance(
         db_client=request.app.db_client
@@ -96,7 +97,7 @@ async def get_conversation_index_info(request: Request,user_id:str, conversation
 
     conversation = await conversation_model.get_conversation_or_create_one(
         conversation_id=conversation_id,
-        user_id=user_id
+        user_id=user.id
     )
 
     nlp_controller = NLPController(
@@ -115,8 +116,8 @@ async def get_conversation_index_info(request: Request,user_id:str, conversation
         }
     )
 
-@nlp_router.post("/index/search/{user_id}/{conversation_id}")
-async def search_index(request: Request, conversation_id: str,user_id:str, search_request: SearchRequest):
+@nlp_router.post("/index/search/{conversation_id}")
+async def search_index(request: Request, conversation_id: str, search_request: SearchRequest,user: CurrentUser = Depends(guard)):
     
     conversation_model = await ConversationModel.create_instance(
         db_client=request.app.db_client
@@ -124,7 +125,7 @@ async def search_index(request: Request, conversation_id: str,user_id:str, searc
 
     conversation = await conversation_model.get_conversation_or_create_one(
         conversation_id=conversation_id,
-        user_id=user_id
+        user_id=user.id
     )
 
     nlp_controller = NLPController(
@@ -153,8 +154,8 @@ async def search_index(request: Request, conversation_id: str,user_id:str, searc
         }
     )
 
-@nlp_router.post("/index/answer/{user_id}/{conversation_id}")
-async def answer_rag(request: Request, conversation_id: str,user_id:str, search_request: SearchRequest):
+@nlp_router.post("/index/answer/{conversation_id}")
+async def answer_rag(request: Request, conversation_id: str, search_request: SearchRequest,user: CurrentUser = Depends(guard)):
     
     conversation_model = await ConversationModel.create_instance(
         db_client=request.app.db_client
@@ -162,7 +163,7 @@ async def answer_rag(request: Request, conversation_id: str,user_id:str, search_
 
     conversation = await conversation_model.get_conversation_or_create_one(
         conversation_id=conversation_id,
-        user_id=user_id
+        user_id=user.id
     )
 
     nlp_controller = NLPController(

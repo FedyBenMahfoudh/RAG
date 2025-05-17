@@ -1,6 +1,8 @@
 from .BaseDataModel import BaseDataModel
 from .db_schemes import Conversation
 from .enums.DataBaseEnum import DataBaseEnum
+import datetime
+from bson.objectid import ObjectId
 
 class ConversationModel(BaseDataModel):
 
@@ -28,26 +30,35 @@ class ConversationModel(BaseDataModel):
 
 
     async def create_conversation(self, conversation: Conversation):
+        now = datetime.datetime.utcnow()
+        conversation.createdAt = now
+        conversation.updatedAt = now
 
         result = await self.collection.insert_one(conversation.dict(by_alias=True, exclude_unset=True))
         conversation.id = result.inserted_id
 
         return conversation
 
-    async def get_conversation_or_create_one(self, conversation_id: str,user_id):
 
-        record = await self.collection.find_one({
-            "conversation_id": conversation_id
-        })
+    async def get_conversation_or_create_one(self, conversation_id: str, user_id: str):
+        try:
+            object_id = ObjectId(conversation_id)
+        except InvalidId:
+            object_id = None
 
-        if record is None:
-            # create new project
-            conversation = Conversation(conversation_id=conversation_id,user_id=user_id)
-            conversation = await self.create_conversation(conversation=conversation)
+        if object_id:
+            record = await self.collection.find_one({
+                "_id": object_id,
+                "user_id": user_id,
+            })
+            if record:
+                return Conversation(**record)
 
-            return conversation
-        
-        return Conversation(**record)
+        # If not found or invalid id
+        conversation = Conversation(title="", user_id=user_id)
+        conversation = await self.create_conversation(conversation=conversation)
+        return conversation
+
 
     # async def get_all_projects(self, page: int=1, page_size: int=10):
 

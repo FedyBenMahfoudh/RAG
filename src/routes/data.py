@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Depends, UploadFile, status, Request
+from fastapi import FastAPI, APIRouter, Depends, UploadFile, status, Request,File
 from fastapi.responses import JSONResponse
 import os
 from helpers.config import get_settings, Settings
@@ -7,37 +7,42 @@ import aiofiles
 from models import ResponseSignal
 import logging
 from .schemes.data import ProcessRequest
-from models import  ConversationModel,ChunkModel,AssetModel
+from models import  ConversationModel,ChunkModel,AssetModel,CurrentUser
 from models.db_schemes import DataChunk, Asset
 from models.enums.AssetTypeEnum import AssetTypeEnum
-from typing import List
+from typing import List,Optional
+from models.db_schemes import Conversation
+from guard.authGuard import guard
 
 logger = logging.getLogger('uvicorn.error')
 
 data_router = APIRouter(
     prefix="/api/v1/data",
     tags=["api_v1", "data"],
+    dependencies=[Depends(guard)] 
 )
 
-@data_router.post("/upload/{user_id}/{conversation_id}")
-async def upload_data(request: Request, conversation_id: str, files: List[UploadFile],user_id : str,
-                      app_settings: Settings = Depends(get_settings)):
-        
-    
+@data_router.post("/upload")
+async def upload_data(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    app_settings: Settings = Depends(get_settings),
+    user: CurrentUser = Depends(guard)
+):
     conversation_model = await ConversationModel.create_instance(
         db_client=request.app.db_client
     )
 
-    conversation = await conversation_model.get_conversation_or_create_one(
-        conversation_id=conversation_id,
-        user_id=user_id
-    )
 
-    # validate the file properties
+    conversation = await conversation_model.create_conversation(
+        Conversation(title="", user_id=user.id)
+    )
+    conversation_id = str(conversation.id)
+
     data_controller = DataController()
     files_id = []
-    for file in files:
 
+    for file in files:
         is_valid, result_signal = data_controller.validate_uploaded_file(file=file)
 
         if not is_valid:
@@ -45,15 +50,19 @@ async def upload_data(request: Request, conversation_id: str, files: List[Upload
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
                     "signal": result_signal,
-                    "file_error_id" : file.filename
+                    "file_error_id": file.filename
                 }
             )
 
-        conversation_dir_path = ConversationController().get_conversation_path(conversation_id=conversation_id,user_id=user_id)
+        conversation_dir_path = ConversationController().get_conversation_path(
+            conversation_id=conversation_id,
+            user_id=user.id
+        )
+
         file_path, file_id = data_controller.generate_unique_filepath(
             orig_file_name=file.filename,
             conversation_id=conversation_id,
-            user_id=user_id
+            user_id=user.id
         )
 
         try:
@@ -61,17 +70,12 @@ async def upload_data(request: Request, conversation_id: str, files: List[Upload
                 while chunk := await file.read(app_settings.FILE_DEFAULT_CHUNK_SIZE):
                     await f.write(chunk)
         except Exception as e:
-
             logger.error(f"Error while uploading file: {e}")
-
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "signal": ResponseSignal.FILE_UPLOAD_FAILED.value
-                }
+                content={"signal": ResponseSignal.FILE_UPLOAD_FAILED.value}
             )
 
-        # store the assets into the database
         asset_model = await AssetModel.create_instance(
             db_client=request.app.db_client
         )
@@ -87,14 +91,95 @@ async def upload_data(request: Request, conversation_id: str, files: List[Upload
         files_id.append(str(asset_record.id))
 
     return JSONResponse(
-            content={
-                "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
-                "files_id": files_id.__str__(),
-            }
+        content={
+            "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
+            "files_id": files_id,
+            "conversation_id": conversation_id
+        }
+    )
+
+@data_router.post("/upload/{conversation_id}")
+async def upload_to_existing_conversation(
+    conversation_id: str,
+    request: Request,
+    files: List[UploadFile] = File(...),
+    app_settings: Settings = Depends(get_settings),
+    user: CurrentUser = Depends(guard)
+):
+    conversation_model = await ConversationModel.create_instance(
+        db_client=request.app.db_client
+    )
+
+
+    conversation = await conversation_model.get_conversation_or_create_one(
+        conversation_id=conversation_id,
+        user_id=user.id
+    )   
+    
+    conversation_id = str(conversation.id)
+    data_controller = DataController()
+    files_id = []
+
+    for file in files:
+        is_valid, result_signal = data_controller.validate_uploaded_file(file=file)
+
+        if not is_valid:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "signal": result_signal,
+                    "file_error_id": file.filename
+                }
+            )
+
+        conversation_dir_path = ConversationController().get_conversation_path(
+            conversation_id=conversation_id,
+            user_id=user.id
         )
 
-@data_router.post("/process/{user_id}/{conversation_id}")
-async def process_endpoint(request: Request, conversation_id: str,user_id:str,process_request: ProcessRequest):
+        file_path, file_id = data_controller.generate_unique_filepath(
+            orig_file_name=file.filename,
+            conversation_id=conversation_id,
+            user_id=user.id
+        )
+
+        try:
+            async with aiofiles.open(file_path, "wb") as f:
+                while chunk := await file.read(app_settings.FILE_DEFAULT_CHUNK_SIZE):
+                    await f.write(chunk)
+        except Exception as e:
+            logger.error(f"Error while uploading file: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"signal": ResponseSignal.FILE_UPLOAD_FAILED.value}
+            )
+
+        asset_model = await AssetModel.create_instance(
+            db_client=request.app.db_client
+        )
+
+        asset_resource = Asset(
+            asset_conversation_id=conversation.id,
+            asset_type=AssetTypeEnum.FILE.value,
+            asset_name=file_id,
+            asset_size=os.path.getsize(file_path)
+        )
+
+        asset_record = await asset_model.create_asset(asset=asset_resource)
+        files_id.append(str(asset_record.id))
+
+    return JSONResponse(
+        content={
+            "signal": ResponseSignal.FILE_UPLOAD_SUCCESS.value,
+            "files_id": files_id,
+            "conversation_id": conversation_id
+        }
+    )
+
+
+
+@data_router.post("/process/{conversation_id}")
+async def process_endpoint(request: Request, conversation_id: str,process_request: ProcessRequest,user: CurrentUser = Depends(guard)):
 
     chunk_size = process_request.chunk_size
     overlap_size = process_request.overlap_size
@@ -106,7 +191,7 @@ async def process_endpoint(request: Request, conversation_id: str,user_id:str,pr
 
     conversation = await conversation_model.get_conversation_or_create_one(
         conversation_id=conversation_id,
-        user_id=user_id  
+        user_id=user.id 
     )
 
     asset_model = await AssetModel.create_instance(
@@ -153,7 +238,7 @@ async def process_endpoint(request: Request, conversation_id: str,user_id:str,pr
             }
         )
     
-    process_controller = ProcessController(conversation_id=conversation_id,user_id=user_id)
+    process_controller = ProcessController(conversation_id=conversation_id,user_id=user.id)
 
     no_records = 0
     no_files = 0

@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = None
     SUPABASE_ANON_KEY: str = None
     SUPABASE_DECOD_ALGORITHM: str = None
+    SUPABASE_SERVICE_ROLE_KEY: str = None
 
     class Config:
         env_file = ".env"
